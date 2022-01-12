@@ -58,8 +58,13 @@ workspace "includr"
 	filter {}
 
 	project "includr"
-		files { "source/**.h", "source/**.cpp" }
+		files { "source/**.h", "source/**.hpp", "source/**.c", "source/**.cpp" }
 		vpaths {
-			["Header Files/*"] = "source/**.h",
-			["Source Files/*"] = "source/**.cpp"
+			["Header Files/*"] = { "source/**.h", "source/**.hpp" },
+			["Source Files/*"] = { "source/**.c", "source/**.cpp" },
+		}
+		
+		includedirs {
+			"source",
+			"source/extern/fastlz",
 		}

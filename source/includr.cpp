@@ -5,21 +5,64 @@
 
 #include "fs.h"
 
-MatchVec includr::search_file(std::string content)
+Matches includr::search_file(std::string content)
 {
-	MatchVec results;
-
+	Matches results;
 	std::smatch sm;
-	while (std::regex_search(content, sm, includr::macro_pattern))
+
+	std::string macro_string = content;
+	while (std::regex_search(macro_string, sm, includr::macro_pattern))
 	{
-		results.emplace_back(sm[1], sm[2], sm[0]);
-		content = sm.suffix();
+		std::string name = sm[1];
+
+		macro_result match(name, sm[2], sm[0]);
+		results.emplace(name, match);
+
+		macro_string = sm.suffix();
+	}
+
+	std::string xor_macro_string = content;
+	while (std::regex_search(xor_macro_string, sm, includr::xor_macro_pattern))
+	{
+		std::string name = sm[1];
+
+		try
+		{
+			macro_result& match = results.at(name);
+			match.xor_key = std::strtoul(sm[2].str().c_str(), nullptr, 16);
+		}
+		catch (std::out_of_range ex)
+		{
+			printf("- Could not find includr '%s' for xor option, skipping\n", name.c_str());
+			continue;
+		}
+
+		xor_macro_string = sm.suffix();
+	}
+
+	std::string compress_macro_string = content;
+	while (std::regex_search(compress_macro_string, sm, includr::compress_macro_pattern))
+	{
+		std::string name = sm[1];
+
+		try
+		{
+			macro_result& match = results.at(name);
+			match.compress = true;
+		}
+		catch (std::out_of_range ex)
+		{
+			printf("- Could not find includr '%s' for compress option, skipping\n", name.c_str());
+			continue;
+		}
+
+		compress_macro_string = sm.suffix();
 	}
 
 	return results;
 }
 
-std::string includr::generate_data(const MatchVec& matches)
+std::string includr::generate_data(const Matches& matches)
 {
 	std::stringstream ss;
 
@@ -28,10 +71,12 @@ std::string includr::generate_data(const MatchVec& matches)
 	ss << "#include \"includr.h\"\n\n";
 
 	// Generate files
-	for (macro_result match : matches)
+	for (const auto& [name, match] : matches)
 	{
+		printf("* Handling file '%s'\n", match.file.c_str());
+
 		ss << "// " << match.matched << "\n";
-		
+
 		if (!fs::exists(match.file))
 		{
 			ss << "#error Could not find file '" << match.file << "'\n\n";
@@ -47,10 +92,40 @@ std::string includr::generate_data(const MatchVec& matches)
 			continue;
 		}
 
-		ss << "includr::IncludrFile " << match.name << "({\n";
-		ss << includr::string_to_hex(file_content) << "\n});\n\n";
+		ss << "includr::IncludrFile " << name << "({\n";
 
-		printf("+ Handled file '%s'\n", match.file.c_str());
+		std::uint32_t decompressed_len = file_content.size();
+
+		ByteArray bytes;
+		std::copy(file_content.begin(), file_content.end(), std::back_inserter(bytes));
+
+		if (match.compress)
+		{
+			includr::compress(bytes);
+
+			printf("  + compress\n");
+		}
+
+		if (match.xor_key != 0)
+		{
+			includr::xor_string(bytes, match.xor_key);
+
+			printf("  + xor 0x%02x\n", match.xor_key);
+		}
+
+		ss << includr::string_to_hex(bytes) << "\n}";
+		
+		if (match.xor_key != 0)
+		{
+			ss << ", " << static_cast<unsigned int>(match.xor_key);
+		}
+
+		if (match.compress)
+		{
+			ss << ", true, " << decompressed_len;
+		}
+			
+		ss << "); \n\n";
 	}
 
 	return ss.str();
