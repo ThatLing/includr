@@ -18,19 +18,11 @@ namespace includr
 	class IncludrFile
 	{
 	public:
-		IncludrFile(ByteArray bytes)
-			: IncludrFile(bytes, 0, false, 0)
-		{}
-
-		IncludrFile(ByteArray bytes, std::uint8_t key)
-			: IncludrFile(bytes, key, false, 0)
-		{}
-
 		IncludrFile(ByteArray bytes, bool compressed, std::uint32_t length)
 			: IncludrFile(bytes, 0, compressed, length)
 		{}
 
-		IncludrFile(ByteArray _bytes, std::uint8_t key, bool compressed, std::uint32_t length)
+		IncludrFile(ByteArray _bytes, std::uint8_t key = 0, bool compressed = false, std::uint32_t length = 0)
 		{
 			if (key != 0)
 			{
