@@ -5,6 +5,8 @@
 #include <string>
 #include <sstream>
 
+#define INCLUDR(name, file) includr::IncludrFile name
+
 namespace includr
 {
 	using ByteArray = const std::vector<std::uint8_t>;
